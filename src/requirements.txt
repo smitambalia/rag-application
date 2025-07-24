@@ -2,3 +2,5 @@ flask
 boto3
 pinecone
 requests
+dotenv
+sentence_transformers

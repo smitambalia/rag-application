@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 import requests
+import time
 
 
 # Load environment variables
@@ -49,16 +50,27 @@ def chat_endpoint():
     data = request.get_json()
     query = data.get('query', '')
 
-    embedding = get_embedding(query)
-    matches = query_pinecone(embedding)
-    context = "\n".join([m['metadata'].get('text', '') for m in matches])
+    timings = {}
 
-    # answer = f"Context:\n{context}\n\nYou asked: {query}. (LLM answer will go here.)"
-    # Build the prompt for the LLM
+    start = time.time()
+    embedding = get_embedding(query)
+    timings['embedding_time'] = time.time() - start
+
+    start = time.time()
+    matches = query_pinecone(embedding)
+    timings['query_pinecone_time'] = time.time() - start
+
+    context = "\n".join([m['metadata'].get('text', '') for m in matches])
     prompt = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
 
+    start = time.time()
     answer = ask_ollama(prompt)
-    return jsonify({'answer': answer})
+    timings['ask_ollama_time'] = time.time() - start
+
+    return jsonify({
+        'answer': answer,
+        'timings': timings
+    })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8001, debug=True)

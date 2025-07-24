@@ -96,3 +96,10 @@ downloads/
 data/
 
 .env
+
+bin/
+share/
+lib64
+
+
+pyvenv.cfg
