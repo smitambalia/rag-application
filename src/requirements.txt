@@ -6,3 +6,4 @@ dotenv
 sentence_transformers
 openai
 groq
+flask-cors
