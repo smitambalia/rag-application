@@ -4,3 +4,5 @@ pinecone
 requests
 dotenv
 sentence_transformers
+openai
+groq

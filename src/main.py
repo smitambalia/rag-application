@@ -5,6 +5,7 @@ from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 import requests
 import time
+from groq import Groq
 
 
 # Load environment variables
@@ -14,7 +15,29 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX = os.getenv("PINECONE_INDEX")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek")  # or "llama2", etc.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # 'openai', 'groq', or 'ollama'
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_BASE = "https://api.groq.com/openai/v1"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+# Initialize OpenAI and Groq clients
+# openai_client = OpenAI(api_key=OPENAI_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+def ask_groq(prompt):
+    completion = groq_client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_completion_tokens=512,
+        top_p=1,
+        stream=False,
+        stop=None,
+    )
+    return completion.choices[0].message.content.strip()
 
 # Load the embedding model once at startup
 embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
@@ -33,7 +56,16 @@ def ask_ollama(prompt):
     }
     response = requests.post(url, json=payload)
     response.raise_for_status()
-    return response.json()["response"]
+    return response.json().response
+
+# def ask_openai(prompt):
+#     response = openai_client.chat.completions.create(
+#         model=OPENAI_MODEL,
+#         messages=[{"role": "user", "content": prompt}],
+#         temperature=0.2,
+#         max_tokens=512
+#     )
+#     return response.choices[0].message.content.strip()
 
 
 def get_embedding(text):
@@ -64,8 +96,12 @@ def chat_endpoint():
     prompt = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
 
     start = time.time()
-    answer = ask_ollama(prompt)
-    timings['ask_ollama_time'] = time.time() - start
+  
+    if LLM_PROVIDER == "groq":
+        answer = ask_groq(prompt)
+    else:
+        answer = ask_ollama(prompt)
+    timings['ask_llm_time'] = time.time() - start
 
     return jsonify({
         'answer': answer,
