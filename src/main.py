@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 import requests
 import time
 from groq import Groq
+from flask_cors import CORS
 
 
 # Load environment variables
@@ -46,6 +47,8 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX)
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins
+
 
 def ask_ollama(prompt):
     url = f"{OLLAMA_BASE_URL}/api/generate"
