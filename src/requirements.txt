@@ -7,3 +7,4 @@ sentence_transformers
 openai
 groq
 flask-cors
+PyPDF2
