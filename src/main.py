@@ -7,10 +7,6 @@ import requests
 import time
 from groq import Groq
 from flask_cors import CORS
-import PyPDF2
-import io
-from werkzeug.utils import secure_filename
-import tempfile
 
 
 # Load environment variables
@@ -84,74 +80,23 @@ def query_pinecone(embedding, top_k=3):
     result = index.query(vector=embedding, top_k=top_k, include_metadata=True)
     return result['matches']
 
-def extract_text_from_pdf(pdf_file):
-    """Extract text content from a PDF file"""
-    try:
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        return text.strip()
-    except Exception as e:
-        raise Exception(f"Error extracting text from PDF: {str(e)}")
 
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
-    # Check if this is a file upload or JSON request
-    if 'file' in request.files:
-        # Handle PDF file upload
-        pdf_file = request.files['file']
-        user_query = request.form.get('query', '')
-        
-        if pdf_file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not pdf_file.filename.lower().endswith('.pdf'):
-            return jsonify({'error': 'Only PDF files are supported'}), 400
-        
-        # Extract text from PDF
-        try:
-            pdf_text = extract_text_from_pdf(pdf_file)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 400
-        
-        # Combine PDF text with user query
-        combined_text = f"PDF Content:\n{pdf_text}\n\nUser Question: {user_query}"
-        
-        timings = {}
-        
-        # Get embedding for the combined text
-        start = time.time()
-        embedding = get_embedding(combined_text)
-        timings['embedding_time'] = time.time() - start
-        
-        # Query Pinecone with the combined text
-        start = time.time()
-        matches = query_pinecone(embedding)
-        timings['query_pinecone_time'] = time.time() - start
-        
-        # Create context from Pinecone matches and PDF content
-        pinecone_context = "\n".join([m['metadata'].get('text', '') for m in matches])
-        full_context = f"PDF Content:\n{pdf_text}\n\nKnowledge Base Context:\n{pinecone_context}"
-        prompt = f"Context:\n{full_context}\n\nQuestion: {user_query}\nAnswer:"
-        
-    else:
-        # Handle regular JSON request (existing functionality)
-        data = request.get_json()
-        user_query = data.get('query', '')
-        
-        timings = {}
-        
-        start = time.time()
-        embedding = get_embedding(user_query)
-        timings['embedding_time'] = time.time() - start
-        
-        start = time.time()
-        matches = query_pinecone(embedding)
-        timings['query_pinecone_time'] = time.time() - start
-        
-        context = "\n".join([m['metadata'].get('text', '') for m in matches])
-        prompt = f"Context:\n{context}\n\nQuestion: {user_query}\nAnswer:"
+    data = request.get_json()
+    user_query = data.get('query', '')
+    timings = {}
+
+    start = time.time()
+    embedding = get_embedding(user_query)
+    timings['embedding_time'] = time.time() - start
+
+    start = time.time()
+    matches = query_pinecone(embedding)
+    timings['query_pinecone_time'] = time.time() - start
+
+    context = "\n".join([m['metadata'].get('text', '') for m in matches])
+    prompt = f"Context:\n{context}\n\nQuestion: {user_query}\nPlease answer in HTML format.\nAnswer:"
 
     # Get LLM response
     start = time.time()
@@ -163,7 +108,9 @@ def chat_endpoint():
 
     return jsonify({
         'answer': answer,
-        'timings': timings
+        'timings': timings,
+        'citations': [],
+        'uploaded_files': [],
     })
 
 if __name__ == "__main__":
