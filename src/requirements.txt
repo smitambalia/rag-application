@@ -1,9 +1,7 @@
-boto3
-tqdm
-pinecone
-sentence_transformers
-dotenv
-google-generativeai
 flask
 flask-cors
+dotenv
+pinecone
+sentence_transformers
 groq
+google-generativeai
